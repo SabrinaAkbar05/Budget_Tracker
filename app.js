@@ -5,20 +5,20 @@
    local storage persistence.
    ══════════════════════════════════════════ */
 
-// ── 1. State ──────────────────────────────
-let entries    = JSON.parse(localStorage.getItem('budget_entries')) || [];
+// ── 1. State & Persistence ──────────────────────────────
+// This loads your data from the browser's storage immediately when the file runs.
+let entries = JSON.parse(localStorage.getItem('budget_entries')) || [];
 let currentFilter = 'all';
-let editingId  = null;
+let editingId = null;
 let searchQuery = '';
 let currentView = 'dashboard';
 
-// ── 2. Categories ─────────────────────────
+// ── 2. Categories & Icons ─────────────────────────
 const categories = {
     income:  ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Bonus', 'Other'],
     expense: ['Food', 'Transport', 'Utilities', 'Shopping', 'Health', 'Education', 'Entertainment', 'Rent', 'Travel', 'Other']
 };
 
-// Category icons map
 const catIcons = {
     Salary: '💼', Freelance: '💻', Business: '🏢', Investment: '📈',
     Gift: '🎁', Bonus: '⭐', Food: '🍜', Transport: '🚗', Utilities: '⚡',
@@ -43,10 +43,9 @@ window.addEventListener('DOMContentLoaded', () => {
     setupCategories();
     form.date.value = todayStr();
 
-    // Populate chart month selector
     populateMonthSelect();
 
-    // Initial render
+    // Initial render - this will now show your saved data from localStorage
     renderAll();
     setupNavigation();
     setupSearch();
@@ -57,11 +56,12 @@ window.addEventListener('DOMContentLoaded', () => {
     setupChartMonthChange();
 });
 
-// ── 5. Utilities ──────────────────────────
+// ── 5. Persistence Utilities ──────────────────────────
 function todayStr() {
     return new Date().toISOString().split('T')[0];
 }
 
+// Saves the current 'entries' array to the browser as a string
 function save() {
     localStorage.setItem('budget_entries', JSON.stringify(entries));
 }
@@ -71,7 +71,6 @@ function formatPKR(n) {
 }
 
 function getMonthKey(dateStr) {
-    // e.g. "2024-06" from "2024-06-15"
     return dateStr ? dateStr.slice(0, 7) : '';
 }
 
@@ -105,18 +104,9 @@ function setupNavigation() {
 
 function switchView(viewId) {
     currentView = viewId;
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === viewId));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + viewId));
 
-    // Update nav highlight
-    document.querySelectorAll('.nav-item').forEach(b => {
-        b.classList.toggle('active', b.dataset.view === viewId);
-    });
-
-    // Show/hide views
-    document.querySelectorAll('.view').forEach(v => {
-        v.classList.toggle('active', v.id === 'view-' + viewId);
-    });
-
-    // Update topbar title
     const titles = {
         dashboard: ['Dashboard', 'Track your financial flow'],
         entries:   ['All Entries', 'View and manage your transactions'],
@@ -125,13 +115,10 @@ function switchView(viewId) {
     document.getElementById('page-title').textContent = titles[viewId]?.[0] || '';
     document.getElementById('page-sub').textContent   = titles[viewId]?.[1] || '';
 
-    // Draw charts when switching to views that need them
     if (viewId === 'dashboard') drawBarChart();
     if (viewId === 'analytics') drawTrendChart();
 
-    // Close sidebar on mobile
     document.querySelector('.sidebar').classList.remove('open');
-
     renderAll();
 }
 
@@ -159,7 +146,6 @@ function applyTheme(theme) {
     localStorage.setItem('budget_theme', theme);
     document.getElementById('theme-icon').textContent  = theme === 'dark' ? '☀' : '☾';
     document.getElementById('theme-label').textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
-    // Redraw charts with new theme colours
     setTimeout(() => { drawBarChart(); drawDonutChart(); drawTrendChart(); }, 50);
 }
 
@@ -173,16 +159,13 @@ function setupModal() {
     closeBtn.addEventListener('click', closeModal);
     form.cancelBtn.addEventListener('click', closeModal);
 
-    overlay.addEventListener('click', e => {
-        if (e.target === overlay) closeModal();
-    });
-
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
     form.submitBtn.addEventListener('click', handleSubmit);
 }
 
-function openModal(prefill = null) {
+function openModal() {
     document.getElementById('modal-overlay').classList.add('open');
-    if (!prefill) {
+    if (!editingId) {
         form.title.textContent = 'New Entry';
         form.submitBtn.textContent = 'Add Entry';
         clearForm();
@@ -224,10 +207,10 @@ function handleSubmit() {
         const idx = entries.findIndex(e => e.id === editingId);
         entries[idx] = entry;
     } else {
-        entries.unshift(entry); // newest first
+        entries.unshift(entry); 
     }
 
-    save();
+    save(); // Update localStorage
     closeModal();
     renderAll();
     drawBarChart();
@@ -241,11 +224,6 @@ function shakeModal() {
     void modal.offsetWidth;
     modal.style.animation = 'shake 0.4s ease';
 }
-
-// Add shake keyframes dynamically
-const shakeStyle = document.createElement('style');
-shakeStyle.textContent = '@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }';
-document.head.appendChild(shakeStyle);
 
 // ── 12. Edit Entry ────────────────────────
 function startEdit(id) {
@@ -261,20 +239,20 @@ function startEdit(id) {
     form.date.value   = e.date;
     updateCatDropdown(e.type);
 
-    // Set category after dropdown update
     setTimeout(() => { form.cat.value = e.category; }, 0);
-
     document.getElementById('modal-overlay').classList.add('open');
 }
 
 // ── 13. Delete Entry ──────────────────────
 function deleteEntry(id) {
-    entries = entries.filter(e => e.id !== id);
-    save();
-    renderAll();
-    drawBarChart();
-    drawDonutChart();
-    drawTrendChart();
+    if(confirm("Delete this entry?")) {
+        entries = entries.filter(e => e.id !== id);
+        save(); // Update localStorage
+        renderAll();
+        drawBarChart();
+        drawDonutChart();
+        drawTrendChart();
+    }
 }
 
 // ── 14. Filters ───────────────────────────
@@ -289,12 +267,107 @@ function setupFilters() {
     });
 }
 
-// ── 15. Render All ────────────────────────
+// ── 15. Rendering Functions ────────────────────────
 function renderAll() {
     renderCards();
     renderRecentList();
     renderEntriesList();
     renderMonthlySummary();
+}
+
+function renderCards() {
+    const inc     = entries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const exp     = entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+    const balance = inc - exp;
+
+    document.getElementById('tot-inc').textContent = formatPKR(inc);
+    document.getElementById('tot-exp').textContent = formatPKR(exp);
+
+    const balEl   = document.getElementById('tot-bal');
+    balEl.textContent = (balance >= 0 ? '' : '-') + formatPKR(balance);
+    balEl.style.color = balance >= 0 ? 'var(--inc)' : 'var(--exp)';
+
+    document.getElementById('entry-count').textContent  = entries.length;
+}
+
+function entryHTML(e) {
+    const icon = catIcons[e.category] || '◈';
+    const cls  = e.type === 'income' ? 'inc' : 'exp';
+    const sign = e.type === 'income' ? '+' : '-';
+    return `
+        <div class="entry-item" data-id="${e.id}">
+            <div class="entry-icon ${cls}">${icon}</div>
+            <div class="entry-info">
+                <div class="entry-label">${e.label}</div>
+                <div class="entry-meta">
+                    <span class="entry-cat-tag">${e.category}</span>
+                    <span>${e.date}</span>
+                </div>
+            </div>
+            <div class="entry-right">
+                <div class="entry-amt ${cls}">${sign} ${formatPKR(e.amount)}</div>
+                <div class="entry-actions">
+                    <button class="icon-btn edit" onclick="startEdit('${e.id}')">Edit</button>
+                    <button class="icon-btn del" onclick="deleteEntry('${e.id}')">Del</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+function emptyHTML(msg = 'No transactions yet.') {
+    return `<div class="empty-state"><div class="empty-icon">◎</div><p>${msg}</p></div>`;
+}
+
+function renderRecentList() {
+    const list = document.getElementById('recent-list');
+    if (!list) return;
+    const recent = entries.slice(0, 5);
+    list.innerHTML = recent.length ? recent.map(entryHTML).join('') : emptyHTML('Add your first entry!');
+}
+
+function renderEntriesList() {
+    const list = document.getElementById('entries-list');
+    if (!list) return;
+    let filtered = entries;
+    if (currentFilter !== 'all') filtered = filtered.filter(e => e.type === currentFilter);
+    if (searchQuery) {
+        filtered = filtered.filter(e =>
+            e.label.toLowerCase().includes(searchQuery) ||
+            e.category.toLowerCase().includes(searchQuery) ||
+            e.date.includes(searchQuery)
+        );
+    }
+    list.innerHTML = filtered.length ? filtered.map(entryHTML).join('') : emptyHTML(searchQuery ? `No results for "${searchQuery}"` : 'No entries found.');
+}
+
+function renderMonthlySummary() {
+    const container = document.getElementById('monthly-summary');
+    if (!container) return;
+    const months = {};
+    entries.forEach(e => {
+        const key = getMonthKey(e.date);
+        if (!months[key]) months[key] = { inc: 0, exp: 0 };
+        if (e.type === 'income')  months[key].inc += e.amount;
+        if (e.type === 'expense') months[key].exp += e.amount;
+    });
+    const sorted = Object.keys(months).sort((a, b) => b.localeCompare(a));
+    if (!sorted.length) {
+        container.innerHTML = emptyHTML('No data yet.');
+        return;
+    }
+    container.innerHTML = sorted.map(key => {
+        const { inc, exp } = months[key];
+        const net = inc - exp;
+        return `
+            <div class="month-row">
+                <span class="month-name">${monthLabel(key)}</span>
+                <div class="month-amounts">
+                    <span class="month-inc">+${formatPKR(inc)}</span>
+                    <span class="month-exp">-${formatPKR(exp)}</span>
+                    <span class="month-net ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '-'}${formatPKR(net)}</span>
+                </div>
+            </div>`;
+    }).join('');
 }
 
 // ── 16. Summary Cards ─────────────────────
