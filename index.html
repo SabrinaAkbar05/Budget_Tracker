@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowBudget — Smart Finance Tracker</title>
+
+  <!-- Fonts: non-blocking -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'" />
+  <!-- Firebase + Chart.js moved to bottom of body (non-blocking) -->
+
+  <style>
+    /* ── RESET & BASE ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0f1117;
+      --bg2:      #161b27;
+      --bg3:      #1e2436;
+      --border:   #2a3148;
+      --text:     #e8ecf4;
+      --muted:    #7b8ab8;
+      --accent:   #6c8aff;
+      --accent2:  #8b5cf6;
+      --green:    #34d399;
+      --red:      #f87171;
+      --amber:    #fbbf24;
+      --radius:   14px;
+      --sidebar:  240px;
+      --font:     'DM Sans', sans-serif;
+      --mono:     'DM Mono', monospace;
+      --shadow:   0 4px 24px rgba(0,0,0,0.4);
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── AUTH SCREEN ──────────────────────────────────────── */
+    #auth-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 60% 20%, #1a2040 0%, var(--bg) 70%);
+      padding: 20px;
+    }
+    .auth-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow);
+    }
+    .auth-logo {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .auth-logo span { color: var(--accent); }
+    .auth-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+    .auth-tabs { display: flex; gap: 4px; background: var(--bg3); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+    .auth-tab {
+      flex: 1; padding: 9px; border: none; background: transparent;
+      color: var(--muted); border-radius: 8px; cursor: pointer; font-family: var(--font);
+      font-size: 14px; font-weight: 500; transition: all .2s;
+    }
+    .auth-tab.active { background: var(--bg2); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+    .field input {
+      width: 100%; padding: 12px 14px; background: var(--bg3);
+      border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+      font-family: var(--font); font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; padding: 13px; background: var(--accent); border: none;
+      border-radius: 10px; color: #fff; font-family: var(--font); font-size: 15px;
+      font-weight: 600; cursor: pointer; transition: opacity .2s; margin-top: 4px;
+    }
+    .btn-primary:hover { opacity: .85; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .auth-divider { text-align: center; color: var(--muted); font-size: 12px; margin: 16px 0; }
+    .btn-google {
+      width: 100%; padding: 12px; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 14px;
+      font-weight: 500; cursor: pointer; transition: background .2s; display: flex;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-google:hover { background: var(--border); }
+    .auth-err { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+    /* ── APP LAYOUT ────────────────────────────────────────── */
+    #app { display: none; height: 100vh; overflow: hidden; }
+    .layout { display: flex; height: 100%; }
+
+    /* ── SIDEBAR ──────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar); background: var(--bg2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 24px 16px; flex-shrink: 0;
+      transition: transform .3s;
+    }
+    .logo { font-size: 18px; font-weight: 600; padding: 0 8px 28px; letter-spacing: -0.3px; }
+    .logo span { color: var(--accent); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+      border-radius: 10px; cursor: pointer; color: var(--muted); font-size: 14px;
+      font-weight: 500; transition: all .2s; margin-bottom: 4px; border: none;
+      background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--bg3); color: var(--text); }
+    .nav-item.active { background: rgba(108,138,255,0.12); color: var(--accent); }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+    .sidebar-spacer { flex: 1; }
+    .user-pill {
+      display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg3);
+      border-radius: 10px; margin-bottom: 10px;
+    }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0;
+    }
+    .user-email { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-signout {
+      width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border);
+      border-radius: 10px; color: var(--muted); font-family: var(--font); font-size: 13px;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-signout:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── MAIN CONTENT ─────────────────────────────────────── */
+    .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .topbar {
+      padding: 20px 28px; border-bottom: 1px solid var(--border); display: flex;
+      align-items: center; justify-content: space-between; background: var(--bg);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-title { font-size: 18px; font-weight: 600; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .btn-add {
+      padding: 10px 18px; background: var(--accent); border: none; border-radius: 10px;
+      color: #fff; font-family: var(--font); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .btn-add:hover { opacity: .85; }
+    .menu-toggle {
+      display: none; background: none; border: none; color: var(--text);
+      font-size: 22px; cursor: pointer; padding: 4px;
+    }
+    .content { padding: 28px; flex: 1; }
+
+    /* ── STAT CARDS ───────────────────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    .stat-amount { font-size: 26px; font-weight: 600; font-family: var(--mono); letter-spacing: -0.5px; }
+    .stat-amount.green { color: var(--green); }
+    .stat-amount.red   { color: var(--red); }
+    .stat-amount.blue  { color: var(--accent); }
+    .stat-badge { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* ── TRANSACTION LIST ─────────────────────────────────── */
+    .section-title {
+      font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex;
+      align-items: center; justify-content: space-between;
+    }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .chip {
+      padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: var(--font); font-size: 13px;
+      cursor: pointer; transition: all .2s;
+    }
+    .chip.active { background: rgba(108,138,255,0.15); border-color: var(--accent); color: var(--accent); }
+    .tx-list { display: flex; flex-direction: column; gap: 10px; }
+    .tx-item {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 18px; display: flex; align-items: center; gap: 14px;
+      transition: background .15s;
+    }
+    .tx-item:hover { background: var(--bg3); }
+    .tx-icon {
+      width: 40px; height: 40px; border-radius: 10px; display: flex;
+      align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+    }
+    .tx-icon.income  { background: rgba(52,211,153,0.12); }
+    .tx-icon.expense { background: rgba(248,113,113,0.12); }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-desc { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .tx-amount { font-family: var(--mono); font-size: 15px; font-weight: 600; flex-shrink: 0; }
+    .tx-amount.income  { color: var(--green); }
+    .tx-amount.expense { color: var(--red); }
+    .tx-del {
+      background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px 6px;
+      border-radius: 6px; font-size: 16px; transition: all .2s; flex-shrink: 0;
+    }
+    .tx-del:hover { background: rgba(248,113,113,0.15); color: var(--red); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── ANALYTICS PAGE ───────────────────────────────────── */
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+    .chart-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 22px;
+    }
+    .chart-card h3 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 18px; }
+    .chart-wrap { position: relative; height: 220px; }
+    @media(max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+
+    /* ── MODAL ────────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 20px;
+      padding: 32px; width: 100%; max-width: 460px; box-shadow: var(--shadow);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .modal-header h2 { font-size: 18px; font-weight: 600; }
+    .modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; transition: color .2s; }
+    .modal-close:hover { color: var(--text); }
+    .type-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
+    .type-btn {
+      flex: 1; padding: 11px; border: 1px solid var(--border); border-radius: 10px;
+      background: transparent; color: var(--muted); font-family: var(--font); font-size: 14px;
+      font-weight: 500; cursor: pointer; transition: all .2s;
+    }
+    .type-btn.active.income  { background: rgba(52,211,153,0.15);  border-color: var(--green); color: var(--green); }
+    .type-btn.active.expense { background: rgba(248,113,113,0.15); border-color: var(--red);   color: var(--red); }
+    .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+    .btn-cancel {
+      flex: 1; padding: 12px; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--muted); font-family: var(--font); font-size: 14px;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+    .btn-submit {
+      flex: 2; padding: 12px; background: var(--accent); border: none; border-radius: 10px;
+      color: #fff; font-family: var(--font); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .btn-submit:hover { opacity: .85; }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── LOADING ──────────────────────────────────────────── */
+    .loading-screen {
+      position: fixed; inset: 0; background: var(--bg); display: flex;
+      align-items: center; justify-content: center; z-index: 200;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PAGE VISIBILITY ──────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── RESPONSIVE ───────────────────────────────────────── */
+    @media(max-width: 768px) {
+      :root { --sidebar: 220px; }
+      .sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.5); }
+      .menu-toggle { display: block; }
+      .content { padding: 20px 16px; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media(max-width: 480px) {
+      .stat-grid { grid-template-columns: 1fr; }
+      .modal { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOADING ─────────────────────────────────────────────── -->
+<div class="loading-screen" id="loading">
+  <div class="spinner"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH SCREEN
+  ═══════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Flow<span>Budget</span></div>
+    <div class="auth-sub">Your finances, secured and synced.</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Create account</button>
+    </div>
+
+    <!-- Login form -->
+    <div id="form-login">
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" /></div>
+      <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" /></div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign in</button>
+      <div class="auth-divider">or</div>
+      <button class="btn-google" onclick="doGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- Signup form -->
+    <div id="form-signup" style="display:none">
+      <div class="field"><label>Display name</label><input type="text" id="signup-name" placeholder="Your name" /></div>
+      <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email" /></div>
+      <div class="field"><label>Password</label><input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password" /></div>
+      <button class="btn-primary" id="btn-signup" onclick="doSignup()">Create account</button>
+      <div class="auth-divider">or</div>
+      <button class="btn-google" onclick="doGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+  ═══════════════════════════════════════════════════════════ -->
+<div id="app">
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">Flow<span>Budget</span></div>
+
+      <button class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard')">
+        <span class="nav-icon">⬡</span> Dashboard
+      </button>
+      <button class="nav-item" id="nav-entries" onclick="showPage('entries')">
+        <span class="nav-icon">≡</span> All Entries
+      </button>
+      <button class="nav-item" id="nav-analytics" onclick="showPage('analytics')">
+        <span class="nav-icon">◎</span> Analytics
+      </button>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="user-pill">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="user-name">User</div>
+          <div class="user-email" id="user-email-display">—</div>
+        </div>
+      </div>
+      <button class="btn-signout" onclick="doSignOut()">Sign out</button>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="topbar">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-right">
+          <button class="btn-add" onclick="openModal()">+ New Entry</button>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- ── DASHBOARD PAGE ─────────────────────────────── -->
+        <div class="page active" id="page-dashboard">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Income</div>
+              <div class="stat-amount green" id="total-income">PKR 0</div>
+              <div class="stat-badge">↑ All time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Expenses</div>
+              <div class="stat-amount red" id="total-expense">PKR 0</div>
+              <div class="stat-badge">↓ All time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Net Balance</div>
+              <div class="stat-amount blue" id="net-balance">PKR 0</div>
+              <div class="stat-badge">◈ Current</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Transactions</div>
+              <div class="stat-amount" id="tx-count" style="color:var(--text)">0</div>
+              <div class="stat-badge">↔ All time</div>
+            </div>
+          </div>
+
+          <div class="section-title">Recent Transactions</div>
+          <div class="tx-list" id="recent-list"></div>
+        </div>
+
+        <!-- ── ENTRIES PAGE ───────────────────────────────── -->
+        <div class="page" id="page-entries">
+          <div class="filter-row">
+            <button class="chip active" onclick="setFilter('all', this)">All</button>
+            <button class="chip" onclick="setFilter('income', this)">Income</button>
+            <button class="chip" onclick="setFilter('expense', this)">Expenses</button>
+          </div>
+          <div class="tx-list" id="entries-list"></div>
+        </div>
+
+        <!-- ── ANALYTICS PAGE ─────────────────────────────── -->
+        <div class="page" id="page-analytics">
+          <div class="chart-grid">
+            <div class="chart-card">
+              <h3>Income vs Expenses</h3>
+              <div class="chart-wrap"><canvas id="chart-bar"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3>Expense Breakdown</h3>
+              <div class="chart-wrap"><canvas id="chart-donut"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Monthly Trend</h3>
+            <div class="chart-wrap" style="height:200px"><canvas id="chart-line"></canvas></div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+  </div><!-- /layout -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADD ENTRY MODAL
+  ═══════════════════════════════════════════════════════════ -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>New Entry</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="type-toggle">
+      <button class="type-btn active income" id="type-income" onclick="setType('income')">↑ Income</button>
+      <button class="type-btn expense"        id="type-expense" onclick="setType('expense')">↓ Expense</button>
+    </div>
+
+    <div class="field"><label>Description</label><input type="text" id="m-desc" placeholder="e.g. Salary, Groceries…" /></div>
+    <div class="field"><label>Amount (PKR)</label><input type="number" id="m-amount" placeholder="0.00" min="0" step="0.01" /></div>
+    <div class="field">
+      <label>Category</label>
+      <select id="m-cat" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none">
+        <option value="General">General</option>
+        <option value="Food">Food & Dining</option>
+        <option value="Transport">Transport</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Bills">Bills & Utilities</option>
+        <option value="Healthcare">Healthcare</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Salary">Salary</option>
+        <option value="Freelance">Freelance</option>
+        <option value="Investment">Investment</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label>Date</label><input type="date" id="m-date" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;color-scheme:dark" /></div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-submit" id="btn-submit" onclick="addEntry()">Add Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase + Chart.js load here so they don't block page render -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+  ═══════════════════════════════════════════════════════════ -->
+<script>
+/* ──────────────────────────────────────────────────────────
+   ★  STEP 1: REPLACE THESE VALUES WITH YOUR FIREBASE CONFIG
+      Get them from: Firebase Console → Project Settings → Your apps
+   ────────────────────────────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyAItxtANbif6aeeie47I6PMCQkfy47UsG4",
+  authDomain: "flowbudget-246db.firebaseapp.com",
+  projectId: "flowbudget-246db",
+  storageBucket: "flowbudget-246db.firebasestorage.app",
+  messagingSenderId: "751338631003",
+  appId: "1:751338631003:web:2026cb5ac4e53a0215347e"
+};
+/* ──────────────────────────────────────────────────────────
+   END OF CONFIG — do not touch anything below unless you
+   know what you're doing.
+   ────────────────────────────────────────────────────────── */
+
+// ── Init Firebase ──────────────────────────────────────────
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── State ──────────────────────────────────────────────────
+let currentUser  = null;
+let transactions = [];
+let txFilter     = 'all';
+let txType       = 'income';
+let unsubscribe  = null;  // Firestore listener
+let charts       = {};
+
+// ── Category emoji map ─────────────────────────────────────
+const catEmoji = {
+  General:'💼', Food:'🍔', Transport:'🚗', Shopping:'🛍️',
+  Bills:'💡', Healthcare:'🏥', Entertainment:'🎬',
+  Salary:'💰', Freelance:'💻', Investment:'📈', Other:'📦'
+};
+
+// ══════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════
+function switchTab(t) {
+  document.getElementById('tab-login').classList.toggle('active', t==='login');
+  document.getElementById('tab-signup').classList.toggle('active', t==='signup');
+  document.getElementById('form-login').style.display  = t==='login'  ? '' : 'none';
+  document.getElementById('form-signup').style.display = t==='signup' ? '' : 'none';
+  setAuthErr('');
+}
+
+function setAuthErr(msg) { document.getElementById('auth-err').textContent = msg; }
+
+function authErrMsg(e) {
+  const map = {
+    'auth/invalid-email':        'Invalid email address.',
+    'auth/user-not-found':       'No account with that email.',
+    'auth/wrong-password':       'Incorrect password.',
+    'auth/email-already-in-use':'Email already registered.',
+    'auth/weak-password':        'Password must be at least 6 characters.',
+    'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
+    'auth/invalid-credential':   'Invalid email or password.',
+  };
+  return map[e.code] || e.message;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if (!email || !pass) return setAuthErr('Please fill in all fields.');
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) { setAuthErr(authErrMsg(e)); }
+  btn.disabled = false; btn.textContent = 'Sign in';
+}
+
+async function doSignup() {
+  const name  = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-pass').value;
+  if (!name || !email || !pass) return setAuthErr('Please fill in all fields.');
+  const btn = document.getElementById('btn-signup');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: name });
+  } catch(e) { setAuthErr(authErrMsg(e)); }
+  btn.disabled = false; btn.textContent = 'Create account';
+}
+
+async function doGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try { await auth.signInWithPopup(provider); }
+  catch(e) { setAuthErr(authErrMsg(e)); }
+}
+
+async function doSignOut() {
+  if (unsubscribe) unsubscribe();
+  await auth.signOut();
+}
+
+// ── Show auth screen IMMEDIATELY — don't wait for Firebase ──
+// This fixes the black screen when opening as a local file or
+// when Firebase CDN is slow. onAuthStateChanged will silently
+// upgrade to the app if a session is found.
+(function() {
+  const loading  = document.getElementById('loading');
+  const authScr  = document.getElementById('auth-screen');
+
+  // Show auth screen right away
+  loading.style.display = 'none';
+  authScr.style.display = 'flex';
+
+  // Hard safety timeout: if Firebase never calls back (e.g. no internet,
+  // file:// protocol, wrong config) we're already showing auth — nothing to do.
+  // But if still on loading somehow, force auth screen after 2s.
+  setTimeout(() => {
+    if (loading.style.display !== 'none') {
+      loading.style.display = 'none';
+      authScr.style.display = 'flex';
+    }
+  }, 2000);
+})();
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    showApp();
+  }
+  // no user = auth screen already visible, nothing to do
+});
+
+function showApp() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  // Set user info in sidebar
+  const initial = (currentUser.displayName || currentUser.email || '?')[0].toUpperCase();
+  document.getElementById('user-avatar').textContent = initial;
+  document.getElementById('user-name').textContent = currentUser.displayName || 'User';
+  document.getElementById('user-email-display').textContent = currentUser.email;
+
+  subscribeTransactions();
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  transactions = [];
+}
+
+// ══════════════════════════════════════════════════════════
+// FIRESTORE — real-time listener
+// ══════════════════════════════════════════════════════════
+function subscribeTransactions() {
+  if (unsubscribe) unsubscribe();
+  const uid = currentUser.uid;
+  unsubscribe = db
+    .collection('users').doc(uid).collection('transactions')
+    .orderBy('date', 'desc')
+    .onSnapshot(snap => {
+      transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+    }, err => console.error('Firestore error:', err));
+}
+
+async function addEntry() {
+  const desc   = document.getElementById('m-desc').value.trim();
+  const amount = parseFloat(document.getElementById('m-amount').value);
+  const cat    = document.getElementById('m-cat').value;
+  const date   = document.getElementById('m-date').value;
+
+  if (!desc)            return showToast('Please enter a description.');
+  if (!amount || amount <= 0) return showToast('Please enter a valid amount.');
+  if (!date)            return showToast('Please select a date.');
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    await db.collection('users').doc(currentUser.uid)
+            .collection('transactions').add({
+      description: desc,
+      amount:      amount,
+      type:        txType,
+      category:    cat,
+      date:        date,
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeModal();
+    showToast('Entry added!');
+  } catch(e) {
+    showToast('Error saving. Try again.');
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = 'Add Entry';
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this transaction?')) return;
+  try {
+    await db.collection('users').doc(currentUser.uid)
+            .collection('transactions').doc(id).delete();
+    showToast('Deleted.');
+  } catch(e) { showToast('Error deleting.'); }
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════
+function renderAll() {
+  renderStats();
+  renderRecent();
+  renderEntries();
+  renderCharts();
+}
+
+function fmtAmt(n) {
+  return 'PKR ' + n.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function renderStats() {
+  const income  = transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const net     = income - expense;
+
+  document.getElementById('total-income').textContent  = fmtAmt(income);
+  document.getElementById('total-expense').textContent = fmtAmt(expense);
+  document.getElementById('net-balance').textContent   = fmtAmt(net);
+  document.getElementById('tx-count').textContent      = transactions.length;
+
+  const nb = document.getElementById('net-balance');
+  nb.className = 'stat-amount ' + (net >= 0 ? 'green' : 'red');
+}
+
+function txCard(t) {
+  const emoji = catEmoji[t.category] || '📦';
+  const sign  = t.type === 'income' ? '+' : '−';
+  const dateStr = t.date ? new Date(t.date + 'T00:00').toLocaleDateString('en-PK', {day:'numeric',month:'short',year:'numeric'}) : '—';
+  return `
+    <div class="tx-item">
+      <div class="tx-icon ${t.type}">${emoji}</div>
+      <div class="tx-info">
+        <div class="tx-desc">${escHtml(t.description)}</div>
+        <div class="tx-meta">${escHtml(t.category)} · ${dateStr}</div>
+      </div>
+      <div class="tx-amount ${t.type}">${sign} ${fmtAmt(t.amount).replace('PKR ','PKR ')}</div>
+      <button class="tx-del" onclick="deleteEntry('${t.id}')" title="Delete">✕</button>
+    </div>`;
+}
+
+function renderRecent() {
+  const el = document.getElementById('recent-list');
+  const recent = transactions.slice(0, 8);
+  el.innerHTML = recent.length
+    ? recent.map(txCard).join('')
+    : `<div class="empty-state"><div class="empty-icon">💸</div><p>No transactions yet. Add your first entry!</p></div>`;
+}
+
+function renderEntries() {
+  const el = document.getElementById('entries-list');
+  const filtered = txFilter === 'all' ? transactions : transactions.filter(t=>t.type===txFilter);
+  el.innerHTML = filtered.length
+    ? filtered.map(txCard).join('')
+    : `<div class="empty-state"><div class="empty-icon">🔍</div><p>No ${txFilter === 'all' ? '' : txFilter} entries yet.</p></div>`;
+}
+
+function setFilter(f, btn) {
+  txFilter = f;
+  document.querySelectorAll('.filter-row .chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  renderEntries();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════════════════
+const CHART_OPTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#7b8ab8', font: { family: "'DM Sans'" } } } }
+};
+
+function renderCharts() {
+  renderBarChart();
+  renderDonutChart();
+  renderLineChart();
+}
+
+function renderBarChart() {
+  const income  = transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const ctx = document.getElementById('chart-bar').getContext('2d');
+  if (charts.bar) charts.bar.destroy();
+  charts.bar = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Income','Expenses'],
+      datasets: [{ data: [income, expense], backgroundColor: ['rgba(52,211,153,.7)','rgba(248,113,113,.7)'], borderRadius: 8, borderSkipped: false }]
+    },
+    options: { ...CHART_OPTS, scales: { x: { ticks:{color:'#7b8ab8'}, grid:{color:'rgba(255,255,255,.05)'} }, y: { ticks:{color:'#7b8ab8'}, grid:{color:'rgba(255,255,255,.05)'} } }, plugins: { ...CHART_OPTS.plugins, legend: { display: false } } }
+  });
+}
+
+function renderDonutChart() {
+  const cats = {};
+  transactions.filter(t=>t.type==='expense').forEach(t=>{
+    cats[t.category] = (cats[t.category]||0) + t.amount;
+  });
+  const labels = Object.keys(cats);
+  const data   = Object.values(cats);
+  const colors = ['#6c8aff','#34d399','#f87171','#fbbf24','#8b5cf6','#06b6d4','#ec4899','#10b981','#f59e0b','#ef4444','#a78bfa'];
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  if (charts.donut) charts.donut.destroy();
+  charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors.slice(0,labels.length), borderWidth: 2, borderColor: '#161b27' }] },
+    options: { ...CHART_OPTS, cutout: '65%' }
+  });
+}
+
+function renderLineChart() {
+  // Group by month
+  const monthly = {};
+  transactions.forEach(t=>{
+    if (!t.date) return;
+    const key = t.date.substring(0,7); // YYYY-MM
+    if (!monthly[key]) monthly[key] = { income:0, expense:0 };
+    monthly[key][t.type] += t.amount;
+  });
+  const sorted = Object.keys(monthly).sort();
+  const incomeData  = sorted.map(k=>monthly[k].income);
+  const expenseData = sorted.map(k=>monthly[k].expense);
+  const labels      = sorted.map(k=>{ const [y,m]=k.split('-'); return new Date(y,m-1).toLocaleDateString('en-PK',{month:'short',year:'2-digit'}); });
+  const ctx = document.getElementById('chart-line').getContext('2d');
+  if (charts.line) charts.line.destroy();
+  charts.line = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Income',  data:incomeData,  borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', tension:.4, fill:true, pointRadius:4 },
+        { label:'Expense', data:expenseData, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.1)', tension:.4, fill:true, pointRadius:4 }
+      ]
+    },
+    options: { ...CHART_OPTS, scales: { x:{ticks:{color:'#7b8ab8'},grid:{color:'rgba(255,255,255,.05)'}}, y:{ticks:{color:'#7b8ab8'},grid:{color:'rgba(255,255,255,.05)'}} } }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════════════
+function openModal() {
+  document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('m-desc').value = '';
+  document.getElementById('m-amount').value = '';
+  document.getElementById('m-cat').value = 'General';
+  setType('income');
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('m-desc').focus(), 100);
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function overlayClick(e) { if (e.target===document.getElementById('overlay')) closeModal(); }
+
+function setType(t) {
+  txType = t;
+  document.getElementById('type-income').className  = 'type-btn income'  + (t==='income'  ? ' active' : '');
+  document.getElementById('type-expense').className = 'type-btn expense' + (t==='expense' ? ' active' : '');
+}
+
+// ══════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+id).classList.add('active');
+  const titles = { dashboard:'Dashboard', entries:'All Entries', analytics:'Analytics' };
+  document.getElementById('topbar-title').textContent = titles[id];
+  // Close sidebar on mobile
+  document.getElementById('sidebar').classList.remove('open');
+  if (id === 'analytics') renderCharts();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:28px;right:28px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:12px 20px;border-radius:12px;font-size:14px;z-index:999;box-shadow:var(--shadow);transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{ t.style.opacity='0'; }, 2500);
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if ((e.ctrlKey||e.metaKey) && e.key==='n') { e.preventDefault(); openModal(); }
+  if (e.key==='Enter' && document.getElementById('login-email')===document.activeElement) doLogin();
+  if (e.key==='Enter' && document.getElementById('login-pass')===document.activeElement)  doLogin();
+});
+</script>
+
+</body>
+</html>
