@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ─── Sidebar ─── -->
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-icon">◈</span>
+            <span class="brand-name">FlowBudget</span>
+        </div>
+
+        <nav class="nav">
+            <button class="nav-item active" data-view="dashboard">
+                <span class="nav-icon">⬡</span> Dashboard
+            </button>
+            <button class="nav-item" data-view="entries">
+                <span class="nav-icon">≡</span> Entries
+            </button>
+            <button class="nav-item" data-view="analytics">
+                <span class="nav-icon">◎</span> Analytics
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                <span class="theme-icon" id="theme-icon">☀</span>
+                <span id="theme-label">Light Mode</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ─── Main Content ─── -->
+    <main class="main">
+
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div>
+                <div class="page-title" id="page-title">Dashboard</div>
+                <div class="page-sub" id="page-sub">Track your financial flow</div>
+            </div>
+            <div class="topbar-right">
+                <div class="search-wrap">
+                    <span class="search-icon">⌕</span>
+                    <input type="text" id="search-input" class="search-input" placeholder="Search entries…">
+                </div>
+                <button class="add-btn" id="open-modal-btn">+ New Entry</button>
+            </div>
+        </div>
+
+        <!-- ─── DASHBOARD VIEW ─── -->
+        <div class="view active" id="view-dashboard">
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="stat-card income-card">
+                    <div class="stat-label">Total Income</div>
+                    <div class="stat-val" id="tot-inc">PKR 0</div>
+                    <div class="stat-badge">↑ Income</div>
+                </div>
+                <div class="stat-card expense-card">
+                    <div class="stat-label">Total Expenses</div>
+                    <div class="stat-val" id="tot-exp">PKR 0</div>
+                    <div class="stat-badge">↓ Expense</div>
+                </div>
+                <div class="stat-card balance-card">
+                    <div class="stat-label">Net Balance</div>
+                    <div class="stat-val" id="tot-bal">PKR 0</div>
+                    <div class="stat-badge" id="bal-badge">◈ Balance</div>
+                </div>
+                <div class="stat-card count-card">
+                    <div class="stat-label">Transactions</div>
+                    <div class="stat-val" id="entry-count">0</div>
+                    <div class="stat-badge">All time</div>
+                </div>
+            </div>
+
+            <!-- Monthly Summary + Chart -->
+            <div class="panel-row">
+                <div class="panel chart-panel">
+                    <div class="panel-header">
+                        <span>Monthly Overview</span>
+                        <select id="chart-month-select" class="mini-select"></select>
+                    </div>
+                    <canvas id="barChart" height="180"></canvas>
+                    <div class="chart-legend">
+                        <span class="legend-dot income-dot"></span> Income
+                        <span class="legend-dot expense-dot" style="margin-left:12px"></span> Expenses
+                    </div>
+                </div>
+
+                <div class="panel donut-panel">
+                    <div class="panel-header"><span>By Category</span></div>
+                    <canvas id="donutChart" height="180"></canvas>
+                    <div id="donut-legend" class="donut-legend"></div>
+                </div>
+            </div>
+
+            <!-- Recent Entries -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Recent Transactions</span>
+                    <button class="link-btn" data-view="entries">View all →</button>
+                </div>
+                <div id="recent-list"></div>
+            </div>
+        </div>
+
+        <!-- ─── ENTRIES VIEW ─── -->
+        <div class="view" id="view-entries">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>All Transactions <span class="badge" id="entry-count-2">0</span></span>
+                    <div class="filter-row">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="income">Income</button>
+                        <button class="filter-btn" data-filter="expense">Expenses</button>
+                    </div>
+                </div>
+                <div id="entries-list"></div>
+            </div>
+        </div>
+
+        <!-- ─── ANALYTICS VIEW ─── -->
+        <div class="view" id="view-analytics">
+            <div class="panel-row">
+                <div class="panel">
+                    <div class="panel-header"><span>Monthly Trend</span></div>
+                    <canvas id="trendChart" height="200"></canvas>
+                </div>
+                <div class="panel">
+                    <div class="panel-header"><span>Monthly Summary</span></div>
+                    <div id="monthly-summary"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ─── Add/Edit Modal ─── -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="form-title">New Entry</div>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+
+            <div class="form-grid">
+                <div class="field full-width">
+                    <label>Description</label>
+                    <input id="f-label" type="text" placeholder="e.g. Monthly Salary">
+                </div>
+                <div class="field">
+                    <label>Amount (PKR)</label>
+                    <input id="f-amount" type="number" min="0" placeholder="0">
+                </div>
+                <div class="field">
+                    <label>Type</label>
+                    <select id="f-type">
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Category</label>
+                    <select id="f-cat"></select>
+                </div>
+                <div class="field">
+                    <label>Date</label>
+                    <input id="f-date" type="date">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-cancel" id="cancel-btn">Cancel</button>
+                <button class="btn btn-add" id="submit-btn">Add Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile menu toggle -->
+    <button class="hamburger" id="hamburger">☰</button>
+
+    <script src="app.js"></script>
+</body>
+</html>
